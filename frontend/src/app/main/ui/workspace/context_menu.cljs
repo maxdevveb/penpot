@@ -742,6 +742,26 @@
        [:> menu-entry* {:title (tr "workspace.shape.menu.clear-guides")
                         :on-click do-remove-guides}]])))
 
+(mf/defc context-menu-move-to-page*
+  {::mf/private true}
+  [{:keys [shapes]}]
+  (let [fdata        (mf/deref refs/workspace-data)
+        curr-page-id (mf/deref refs/current-page-id)
+        pages-order  (:pages fdata)
+        pindex       (:pages-index fdata)
+        other-pages  (->> pages-order
+                          (remove #(= % curr-page-id))
+                          (keep #(get pindex %)))
+        shape-ids    (into #{} (map :id) shapes)]
+    (when (and (seq other-pages) (seq shapes))
+      [:*
+       [:> menu-separator* {}]
+       [:> menu-entry* {:title (tr "Move to page")}
+        (for [target-page other-pages]
+          [:> menu-entry* {:key (str (:id target-page))
+                           :title (:name target-page)
+                           :on-click #(st/emit! (dw/move-shapes-to-page shape-ids (:id target-page)))}])]])))
+
 (mf/defc context-menu-delete*
   {::mf/private true}
   []
@@ -787,6 +807,7 @@
          [:> context-menu-layout* props])
        [:> context-menu-component* props]
        [:> context-menu-guides* props]
+       [:> context-menu-move-to-page* props]
        [:> context-menu-delete* props]])))
 
 (mf/defc page-item-context-menu*

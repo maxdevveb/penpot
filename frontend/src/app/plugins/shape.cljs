@@ -1097,6 +1097,26 @@
                :else
                (st/emit! (dwsh/delete-shapes #{id}))))
 
+           :moveToPage
+           (fn [target-page]
+             (let [target-page-id (cond
+                                    (uuid? target-page) target-page
+                                    (string? target-page) (uuid/parse target-page)
+                                    (obj/type-of? target-page "PageProxy") (obj/get target-page "$id")
+                                    :else nil)]
+               (cond
+                 (not (r/check-permission plugin-id "content:write"))
+                 (u/not-valid plugin-id :moveToPage "Plugin doesn't have 'content:write' permission")
+
+                 (nil? target-page-id)
+                 (u/not-valid plugin-id :moveToPage "Invalid target page")
+
+                 (= page-id target-page-id)
+                 nil
+
+                 :else
+                 (st/emit! (dw/move-shapes-to-page page-id #{id} target-page-id)))))
+
            :waitForLayoutUpdate
            (fn [timeout]
              ;; Wait for layout work that can affect this shape.

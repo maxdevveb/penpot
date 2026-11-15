@@ -55,6 +55,7 @@
    [app.main.data.workspace.layout :as layout]
    [app.main.data.workspace.libraries :as dwl]
    [app.main.data.workspace.mcp :as mcp]
+   [app.main.data.workspace.move-to-page :as dwmp]
    [app.main.data.workspace.notifications :as dwn]
    [app.main.data.workspace.pages :as dwpg]
    [app.main.data.workspace.path :as dwdp]
@@ -1736,3 +1737,4 @@
 
 ;; Shapes
 (dm/export dwsh/delete-shapes)
+(dm/export dwmp/move-shapes-to-page)
