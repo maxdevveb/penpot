@@ -1102,7 +1102,8 @@
              (let [target-page-id (cond
                                     (uuid? target-page) target-page
                                     (string? target-page) (uuid/parse target-page)
-                                    (obj/type-of? target-page "PageProxy") (obj/get target-page "$id")
+                                    (= "PageProxy" (obj/get target-page (js/Symbol.for "penpot.reify:type")))
+                                    (obj/get target-page "$id")
                                     :else nil)]
                (cond
                  (not (r/check-permission plugin-id "content:write"))

@@ -58,28 +58,30 @@
                  undo-id        (js/Symbol)
 
                  ;; 1. Generate delete changes on source page (handles flows, masks, touched, undo)
-                 [_all-parents changes]
+                 [_all-parents delete-changes]
                  (-> (pcb/empty-changes it (:id src-page))
                      (cls/generate-delete-shapes fdata src-page src-objects ids
                                                  {:undo-id undo-id}))
 
-                 ;; 2. Switch context to destination page and add objects
-                 changes
-                 (-> changes
+                 ;; Build destination additions separately. Reusing the source
+                 ;; builder would replay source deletes against destination
+                 ;; objects when with-objects resets the local apply count.
+                 add-changes
+                 (-> (pcb/empty-changes it target-page-id)
                      (pcb/with-page dst-page)
-                     (pcb/with-page-id target-page-id)
                      (pcb/with-objects dst-objects)
                      (as-> chgs
-                       (reduce
-                        (fn [c shape]
-                          (let [top-level? (contains? top-level-set (:id shape))
-                                ;; Top-level shapes (boards) are attached to page root
-                                shape'     (if top-level?
-                                             (assoc shape :parent-id root :frame-id root)
-                                             shape)]
-                            (pcb/add-object c shape' {:index nil})))
-                        chgs
-                        shapes-to-move)))]
+                           (reduce
+                            (fn [c shape]
+                              (let [top-level? (contains? top-level-set (:id shape))
+                                    shape'     (if top-level?
+                                                 (assoc shape :parent-id root :frame-id root)
+                                                 shape)]
+                                (pcb/add-object c shape' {:index nil})))
+                            chgs
+                            shapes-to-move)))
+
+                 changes (pcb/concat-changes delete-changes add-changes)]
 
              (rx/of (dwu/start-undo-transaction undo-id)
                     (dch/commit-changes changes)
