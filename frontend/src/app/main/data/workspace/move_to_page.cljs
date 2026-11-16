@@ -6,8 +6,6 @@
 
 (ns app.main.data.workspace.move-to-page
   (:require
-   [app.common.data :as d]
-   [app.common.data.macros :as dm]
    [app.common.files.changes-builder :as pcb]
    [app.common.files.helpers :as cfh]
    [app.common.logic.shapes :as cls]
@@ -60,7 +58,7 @@
                  undo-id        (js/Symbol)
 
                  ;; 1. Generate delete changes on source page (handles flows, masks, touched, undo)
-                 [all-parents changes]
+                 [_all-parents changes]
                  (-> (pcb/empty-changes it (:id src-page))
                      (cls/generate-delete-shapes fdata src-page src-objects ids
                                                  {:undo-id undo-id}))
