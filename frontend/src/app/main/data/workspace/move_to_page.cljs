@@ -85,7 +85,7 @@
 
              (rx/of (dwu/start-undo-transaction undo-id)
                     (dch/commit-changes changes)
-                    (dws/clear-selection)
+                    (dws/deselect-all)
                     (ptk/data-event :layout/update {:ids [root]})
                     (notifications/success
                      (str (tr "Moved to ") (:name dst-page)))))))))))
