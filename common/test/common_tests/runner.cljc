@@ -57,6 +57,7 @@
    [common-tests.logic.copying-and-duplicating-test]
    [common-tests.logic.duplicated-pages-test]
    [common-tests.logic.move-shapes-test]
+   [common-tests.logic.move-shapes-to-page-test]
    [common-tests.logic.multiple-nesting-levels-test]
    [common-tests.logic.swap-and-reset-test]
    [common-tests.logic.swap-as-override-test]
@@ -136,6 +137,7 @@
    'common-tests.logic.copying-and-duplicating-test
    'common-tests.logic.duplicated-pages-test
    'common-tests.logic.move-shapes-test
+   'common-tests.logic.move-shapes-to-page-test
    'common-tests.logic.multiple-nesting-levels-test
    'common-tests.logic.swap-and-reset-test
    'common-tests.logic.swap-as-override-test

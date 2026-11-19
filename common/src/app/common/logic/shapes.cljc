@@ -239,10 +239,12 @@
                         ;; return a boolean
                         ignore-children-fn
                         ignore-mask
-                        ignore-flows-for]
+                        ignore-flows-for
+                        ignore-components]
                  :or {ignore-children-fn (constantly false)
                       ignore-mask false
-                      ignore-flows-for #{}}}]
+                      ignore-flows-for #{}
+                      ignore-components false}}]
    (let [objects (pcb/get-objects changes)
          data    (pcb/get-library-data changes)
          page-id (pcb/get-page-id changes)
@@ -364,14 +366,16 @@
            #{})
 
          components-to-delete
-         (reduce (fn [components id]
-                   (let [shape (get objects id)]
-                     (if (and (= (:component-file shape) (:id data)) ;; Main instances should exist only in local file
-                              (:main-instance shape))                ;; but check anyway
-                       (conj components (:component-id shape))
-                       components)))
-                 []
-                 (into ids-to-delete descendants-to-delete))
+         (if ignore-components
+           []
+           (reduce (fn [components id]
+                     (let [shape (get objects id)]
+                       (if (and (= (:component-file shape) (:id data)) ;; Main instances should exist only in local file
+                                (:main-instance shape))                ;; but check anyway
+                         (conj components (:component-id shape))
+                         components)))
+                   []
+                   (into ids-to-delete descendants-to-delete)))
 
          ;; Empty main parents also leave their copies dangling.
          all-deleted-ids
@@ -685,3 +689,77 @@
   (if (true? (:hide-in-viewer shape))
     shape
     (dissoc shape :hide-in-viewer)))
+
+(defn- get-tree-shapes
+  "Traverses shapes top-down starting from root-ids, ensuring parents appear before their children."
+  [objects root-ids]
+  (letfn [(traverse [id]
+            (when-let [shape (get objects id)]
+              (cons shape (mapcat traverse (:shapes shape)))))]
+    (mapcat traverse root-ids)))
+
+(defn generate-move-shapes-to-page
+  "Generates changes to move `ids` (and their subtrees) from `src-page-id`
+   to `target-page-id`, preserving shape IDs and relocating any local main
+   component definitions in the moved subtrees to `target-page-id`."
+  ([it fdata src-page-id target-page-id ids]
+   (generate-move-shapes-to-page it fdata src-page-id target-page-id ids nil))
+  ([it fdata src-page-id target-page-id ids {:keys [undo-id]}]
+   (let [src-page    (ctpl/get-page fdata src-page-id)
+         dst-page    (ctpl/get-page fdata target-page-id)
+         src-objects (:objects src-page)
+         dst-objects (:objects dst-page)
+         ids         (->> (cfh/clean-loops src-objects ids)
+                          (filterv #(contains? src-objects %)))]
+     (when (and (seq ids)
+                (some? src-page)
+                (some? dst-page)
+                (not= src-page-id target-page-id))
+       (let [top-level-set  (set ids)
+             shapes-to-move (get-tree-shapes src-objects ids)
+             root           uuid/zero
+
+             component-ids
+             (into []
+                   (comp (filter #(and (= (:component-file %) (:id fdata))
+                                       (:main-instance %)))
+                         (map :component-id)
+                         (distinct))
+                   shapes-to-move)
+
+             delete-options
+             (cond-> {:ignore-components true}
+               (some? undo-id) (assoc :undo-id undo-id))
+
+             ;; 1. Remove shapes from source page without deleting local components
+             [_all-parents delete-changes]
+             (-> (pcb/empty-changes it src-page-id)
+                 (generate-delete-shapes fdata src-page src-objects ids delete-options))
+
+             ;; 2. Add shapes to destination page with a dedicated builder
+             add-changes
+             (-> (pcb/empty-changes it target-page-id)
+                 (pcb/with-page dst-page)
+                 (pcb/with-objects dst-objects)
+                 (as-> chgs
+                       (reduce
+                        (fn [c shape]
+                          (let [top-level? (contains? top-level-set (:id shape))
+                                shape'     (if top-level?
+                                             (assoc shape :parent-id root :frame-id root)
+                                             shape)]
+                            (pcb/add-object c shape' {:index nil})))
+                        chgs
+                        shapes-to-move)))
+
+             ;; 3. Relocate :main-instance-page for every moved local component
+             component-changes
+             (reduce (fn [c comp-id]
+                       (pcb/update-component c comp-id #(assoc % :main-instance-page target-page-id)))
+                     (-> (pcb/empty-changes it target-page-id)
+                         (pcb/with-library-data fdata))
+                     component-ids)]
+
+         (-> delete-changes
+             (pcb/concat-changes add-changes)
+             (pcb/concat-changes component-changes)))))))
